@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lung Cancer Detection</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: var(--gray-50);
+            color: var(--gray-800);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+        
+        /* Upload Section */
+        .upload-container {
+            border: 2px dashed var(--gray-300);
+            border-radius: 1rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background-color: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        
+        .upload-container:hover {
+            border-color: var(--primary);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transform: translateY(-2px);
+        }
+        
+        .upload-container.dragover {
+            background-color: rgba(79, 70, 229, 0.05);
+            border-color: var(--primary);
+        }
+        
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            border-radius: 0.5rem;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            padding: 0.625rem 1.5rem;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .btn-outline {
+            background-color: white;
+            border: 1px solid var(--gray-300);
+            color: var(--gray-700);
+            padding: 0.5rem 1rem;
+        }
+        
+        .btn-outline:hover {
+            background-color: var(--gray-50);
+            border-color: var(--gray-400);
+        }
+        
+        /* Cancer Risk Indicator */
+        .cancer-indicator {
+            height: 10px;
+            background-color: var(--gray-200);
+            border-radius: 5px;
+            position: relative;
+            overflow: hidden;
+            margin: 1.5rem 0;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        
+        .cancer-level {
+            height: 100%;
+            width: 0;
+            background: linear-gradient(90deg, var(--success), var(--warning), var(--danger));
+            border-radius: 5px;
+            transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .cancer-marker {
+            position: absolute;
+            top: -5px;
+            left: 0;
+            width: 2px;
+            height: 20px;
+            background-color: var(--gray-800);
+            transform: translateX(-50%);
+            transition: left 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 10;
+        }
+        
+        /* Result Cards */
+        .result-card {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            will-change: opacity, transform;
+        }
+        
+        .result-card.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        /* Loading Animation */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--gray-100);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #c7d2fe;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a5b4fc;
+        }
+        
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+        
+        .slide-in {
+            animation: slideIn 0.4s ease-out forwards;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 1rem;
+            }
+            
+            .grid-cols-1\:md\:grid-cols-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Print Styles */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            
+            body {
+                background: white;
+                color: black;
+                font-size: 12pt;
+            }
+            
+            .container {
+                max-width: 100%;
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <header class="text-center mb-12 animate__animated animate__fadeIn">
+            <div class="inline-block p-3 bg-blue-50 rounded-full mb-4">
+                <i class="fas fa-lungs text-blue-500 text-3xl"></i>
+            </div>
+            <h1 class="text-4xl font-bold text-gray-800 mb-3 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-cyan-500">
+                Lung Cancer Detection System
+            </h1>
+            <p class="text-gray-600 max-w-2xl mx-auto">
+                Upload a CT scan image to analyze potential lung nodules and assess cancer risk with our AI-powered diagnostic tool
+            </p>
+        </header>
+
+        <!-- Upload Section -->
+        <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl">
+            <div class="p-2 bg-gradient-to-r from-blue-500 to-cyan-500"></div>
+            
+            <div class="p-8">
+                <div id="upload-section">
+                    <div id="drop-zone" class="scan-preview rounded-xl p-12 text-center cursor-pointer transition-all duration-300">
+                        <div id="upload-content" class="fade-in">
+                            <div class="mx-auto h-20 w-20 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                                <i class="fas fa-cloud-upload-alt text-blue-500 text-3xl"></i>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-800 mb-1">Upload CT Scan Image</h3>
+                            <p class="text-sm text-gray-500 mb-4">Drag & drop your image here or click to browse</p>
+                            
+                            <label for="file-upload" class="relative cursor-pointer bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-full inline-flex items-center transition-colors">
+                                <i class="fas fa-upload mr-2"></i>
+                                Select Image
+                                <input id="file-upload" name="file-upload" type="file" class="sr-only" accept="image/*">
+                            </label>
+                            <p class="text-xs text-gray-400 mt-3">Supports: PNG, JPG, JPEG (Max 10MB)</p>
+                        </div>
+                        
+                        <div id="loading" class="hidden flex-col items-center justify-center py-8">
+                            <div class="relative mb-4">
+                                <div class="w-16 h-16 border-4 border-blue-100 rounded-full"></div>
+                                <div class="absolute top-0 left-0 w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                            <h4 class="text-lg font-medium text-gray-800 mb-1">Analyzing CT Scan</h4>
+                            <p class="text-sm text-gray-500">This may take a few moments...</p>
+                            <div class="w-1/2 bg-gray-200 rounded-full h-1.5 mt-4">
+                                <div id="loading-bar" class="bg-blue-500 h-1.5 rounded-full" style="width: 0%; transition: width 0.5s ease;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            <!-- Results Section -->
+            <div id="result-container" class="result-container hidden mt-8">
+                <div class="bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-500 transform">
+                    <!-- Results Header -->
+                    <div class="p-6 border-b border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h2 class="text-2xl font-bold text-gray-800">Analysis Results</h2>
+                                <p class="text-gray-500 text-sm">Detailed assessment of the CT scan</p>
+                            </div>
+                            <span id="timestamp" class="text-sm text-gray-400"></span>
+                        </div>
+                    </div>
+                    
+                    <!-- Scan Preview -->
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                            <div class="result-card" style="transition-delay: 100ms">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h3 class="font-medium text-gray-700">Original CT Scan</h3>
+                                    <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">Input</span>
+                                </div>
+                                <div class="relative bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
+                                    <img id="original-image" src="" alt="Original CT Scan" class="w-full h-64 object-contain p-2">
+                                    <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 hover:opacity-100 transition-opacity flex items-end p-4">
+                                        <span class="text-white text-sm">Original CT Scan Image</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="result-card" style="transition-delay: 200ms">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h3 class="font-medium text-gray-700">Nodule Detection</h3>
+                                    <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">AI Analysis</span>
+                                </div>
+                                <div class="relative bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
+                                    <img id="mask-image" src="" alt="Nodule Detection" class="w-full h-64 object-contain p-2">
+                                    <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 hover:opacity-100 transition-opacity flex items-end p-4">
+                                        <span class="text-white text-sm">Detected Nodules Highlighted</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Risk Assessment -->
+                        <div class="result-card bg-gradient-to-br from-white to-gray-50 p-6 rounded-xl border border-gray-100 shadow-sm mb-6" style="transition-delay: 300ms">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                                <i class="fas fa-chart-line mr-2"></i>
+                                Cancer Risk Assessment
+                            </h3>
+                            
+                            <div class="mb-6">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-sm font-medium text-gray-500">Risk Level</span>
+                                    <span id="severity-badge" class="text-xs font-semibold px-3 py-1 rounded-full">
+                                        Calculating...
+                                    </span>
+                                </div>
+                                
+                                <div class="relative">
+                                    <div class="cancer-indicator">
+                                        <div id="cancer-level" class="cancer-level"></div>
+                                        <div id="cancer-marker" class="cancer-marker"></div>
+                                    </div>
+                                    <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                        <span>0%</span>
+                                        <span id="cancer-probability">0%</span>
+                                        <span>100%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="diagnosis" class="p-5 rounded-lg mb-6 transition-all duration-300">
+                                <div class="flex items-start">
+                                    <div id="diagnosis-icon" class="mr-4 mt-1">
+                                        <i class="fas fa-info-circle text-blue-500 text-2xl"></i>
+                                    </div>
+                                    <div>
+                                        <h4 id="diagnosis-text" class="text-lg font-semibold mb-1">Analyzing CT Scan...</h4>
+                                        <p id="diagnosis-details" class="text-gray-600 text-sm mb-2">
+                                            Our AI is analyzing the scan for potential lung nodules.
+                                        </p>
+                                        <p id="recommendation" class="text-sm font-medium"></p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="bg-blue-50 p-4 rounded-lg">
+                                    <div class="flex items-center">
+                                        <div class="p-2 bg-blue-100 rounded-full mr-3">
+                                            <i class="fas fa-lungs text-blue-500"></i>
+                                        </div>
+                                        <div>
+                                            <p class="text-xs text-gray-500">Nodules Detected</p>
+                                            <p id="nodule-count" class="font-semibold text-gray-800">-</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="bg-amber-50 p-4 rounded-lg">
+                                    <div class="flex items-center">
+                                        <div class="p-2 bg-amber-100 rounded-full mr-3">
+                                            <i class="fas fa-chart-pie text-amber-500"></i>
+                                        </div>
+                                        <div>
+                                            <p class="text-xs text-gray-500">Affected Area</p>
+                                            <p id="affected-area" class="font-semibold text-gray-800">-</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mt-8">
+                            <button onclick="resetForm()" class="w-full sm:w-auto px-6 py-3 bg-white border border-blue-600 text-blue-600 hover:bg-blue-50 rounded-lg font-medium flex items-center justify-center transition-colors">
+                                <i class="fas fa-redo mr-2"></i>
+                                Analyze Another Scan
+                            </button>
+                            <div class="flex items-center text-sm text-gray-500">
+                                <i class="fas fa-info-circle mr-2 text-blue-400"></i>
+                                Results are for informational purposes only
+                            </div>
+                        </div>
+                    </div>
+            </div>
+        </div>
+
+        <!-- AI Chat Assistant Section -->
+        <div class="mt-8 bg-white rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mr-3">
+                        <i class="fas fa-robot text-white"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">AI Lung Cancer Assistant</h3>
+                        <p class="text-sm text-gray-500">Ask me about your results, symptoms, or lung health</p>
+                    </div>
+                </div>
+                <button id="toggle-chat" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    <i class="fas fa-comments mr-2"></i>
+                    Chat
+                </button>
+            </div>
+
+            <!-- Chat Container -->
+            <div id="chat-container" class="hidden">
+                <div id="chat-messages" class="h-96 overflow-y-auto bg-gray-50 rounded-lg p-4 mb-4 border">
+                    <!-- Welcome message -->
+                    <div class="flex items-start mb-4">
+                        <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                            <i class="fas fa-robot text-white text-xs"></i>
+                        </div>
+                        <div class="bg-white rounded-lg p-3 max-w-md shadow-sm">
+                            <p class="text-sm text-gray-700">Hello! I'm your lung cancer specialist AI assistant. I can help you understand your CT scan results and provide information about lung health. Feel free to ask me anything about your analysis or general lung health questions.</p>
+                            <span class="text-xs text-gray-400 mt-1 block">AI Assistant</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Input -->
+                <div class="flex items-center space-x-2">
+                    <input 
+                        type="text" 
+                        id="chat-input" 
+                        placeholder="Ask about your results, symptoms, or lung health..."
+                        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                        maxlength="500"
+                    >
+                    <button 
+                        id="send-message" 
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <button class="quick-action px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200 transition-colors" data-message="What do you see in my scan results?">
+                        📊 Analyze Results
+                    </button>
+                    <button class="quick-action px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200 transition-colors" data-message="What are the common symptoms of lung cancer?">
+                        🩺 Symptoms
+                    </button>
+                    <button class="quick-action px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200 transition-colors" data-message="What are the main risk factors?">
+                        ⚠️ Risk Factors
+                    </button>
+                    <button class="quick-action px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200 transition-colors" data-message="How does lung cancer screening work?">
+                        🔍 Screening Info
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <footer class="mt-12 text-center text-gray-500 text-sm">
+            <p>This tool is for research purposes only. Please consult a healthcare professional for medical diagnosis.</p>
+        </footer>
+    </div>
+
+    <script>
+        // DOM Elements
+        const fileInput = document.getElementById('file-upload');
+        const dropZone = document.getElementById('drop-zone');
+        const uploadContent = document.getElementById('upload-content');
+        const loading = document.getElementById('loading');
+        const resultContainer = document.getElementById('result-container');
+        const originalImage = document.getElementById('original-image');
+        const maskImage = document.getElementById('mask-image');
+        const cancerLevel = document.getElementById('cancer-level');
+        const cancerMarker = document.getElementById('cancer-marker');
+        
+        // Chat DOM Elements
+        const toggleChatBtn = document.getElementById('toggle-chat');
+        const chatContainer = document.getElementById('chat-container');
+        const chatMessages = document.getElementById('chat-messages');
+        const chatInput = document.getElementById('chat-input');
+        const sendMessageBtn = document.getElementById('send-message');
+        const quickActionBtns = document.querySelectorAll('.quick-action');
+
+        // Handle drag and drop
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // Highlight drop zone when dragging files over it
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.add('border-blue-500', 'bg-blue-50');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+            }, false);
+        });
+
+        // Handle file selection
+        dropZone.addEventListener('drop', handleDrop, false);
+        fileInput.addEventListener('change', handleFileSelect);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+
+        function handleFile(file) {
+            if (!file.type.match('image.*')) {
+                showError('Please upload a valid image file (PNG, JPG, JPEG)');
+                return;
+            }
+
+            // Check file size (max 10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                showError('File size should be less than 10MB');
+                return;
+            }
+
+            // Show loading state
+            uploadContent.classList.add('hidden');
+            loading.classList.remove('hidden');
+            resultContainer.classList.add('hidden');
+
+            // Show preview of selected image
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                originalImage.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+
+            // Simulate upload progress
+            simulateUploadProgress();
+
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Send to server for processing
+            fetch('/predict', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Server responded with an error');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                showResults(data);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError(error.message || 'Failed to process the image. Please try again.');
+            });
+        }
+
+        function simulateUploadProgress() {
+            const loadingBar = document.getElementById('loading-bar');
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress > 90) {
+                    clearInterval(interval);
+                    loadingBar.style.width = '90%';
+                    return;
+                }
+                loadingBar.style.width = `${progress}%`;
+            }, 200);
+        }
+
+        function showResults(data) {
+            // Update images
+            originalImage.src = data.original + '?t=' + new Date().getTime();
+            maskImage.src = data.mask + '?t=' + new Date().getTime();
+            
+            // Set current timestamp
+            document.getElementById('timestamp').textContent = new Date().toLocaleString();
+            
+            // Get analysis data
+            const analysis = data.analysis;
+            const probability = analysis.probability;
+            const riskLevel = probability < 15 ? 'Low' : probability < 50 ? 'Medium' : 'High';
+            
+            // Update risk level badge
+            const severityBadge = document.getElementById('severity-badge');
+            severityBadge.textContent = riskLevel;
+            severityBadge.className = `text-xs font-semibold px-3 py-1 rounded-full ${
+                riskLevel === 'Low' ? 'bg-green-100 text-green-800' : 
+                riskLevel === 'Medium' ? 'bg-yellow-100 text-yellow-800' : 
+                'bg-red-100 text-red-800'
+            }`;
+            
+            // Update diagnosis card
+            const diagnosisCard = document.getElementById('diagnosis');
+            diagnosisCard.className = `p-5 rounded-lg mb-6 transition-all duration-300 ${
+                riskLevel === 'Low' ? 'bg-green-50 border border-green-100' : 
+                riskLevel === 'Medium' ? 'bg-yellow-50 border border-yellow-100' : 
+                'bg-red-50 border border-red-100'
+            }`;
+            
+            // Update diagnosis icon
+            const diagnosisIcon = document.getElementById('diagnosis-icon');
+            diagnosisIcon.innerHTML = riskLevel === 'Low' ? 
+                '<i class="fas fa-check-circle text-green-500 text-2xl"></i>' :
+                riskLevel === 'Medium' ? 
+                '<i class="fas fa-exclamation-triangle text-yellow-500 text-2xl"></i>' :
+                '<i class="fas fa-exclamation-circle text-red-500 text-2xl"></i>';
+            
+            // Update diagnosis text
+            document.getElementById('diagnosis-text').textContent = analysis.diagnosis;
+            document.getElementById('diagnosis-details').textContent = analysis.recommendation;
+            
+            // Update stats
+            document.getElementById('nodule-count').textContent = analysis.nodule_count;
+            document.getElementById('affected-area').textContent = analysis.affected_area;
+            
+            // Animate cancer level
+            setTimeout(() => {
+                cancerLevel.style.width = `${probability}%`;
+                cancerMarker.style.left = `${probability}%`;
+                
+                // Animate percentage counter
+                animateValue('cancer-probability', 0, probability, 1500);
+                
+                // Show result cards with staggered animation
+                const resultCards = document.querySelectorAll('.result-card');
+                resultCards.forEach((card, index) => {
+                    setTimeout(() => {
+                        card.classList.add('visible');
+                    }, 300 + (index * 100));
+                });
+                
+                // Show results section
+                loading.classList.add('hidden');
+                resultContainer.classList.remove('hidden');
+                
+                // Scroll to results
+                setTimeout(() => {
+                    resultContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 300);
+                
+            }, 300);
+        }
+        
+        function animateValue(id, start, end, duration) {
+            const element = document.getElementById(id);
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                const value = Math.floor(progress * (end - start) + start);
+                element.textContent = `${value}%`;
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
+        
+        function showError(message) {
+            // Hide loading state
+            loading.classList.add('hidden');
+            uploadContent.classList.remove('hidden');
+            
+            // Create and show error toast
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-4 right-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-lg z-50 transform transition-all duration-300 translate-x-0';
+            toast.innerHTML = `
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 pt-0.5">
+                        <i class="fas fa-exclamation-circle"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm font-medium">Error</p>
+                        <p class="text-sm text-red-600">${message}</p>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-red-500 hover:text-red-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(toast);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                toast.style.transform = 'translateX(120%)';
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
+        function resetForm() {
+            // Reset file input
+            fileInput.value = '';
+            
+            // Reset UI
+            uploadContent.classList.remove('hidden');
+            loading.classList.add('hidden');
+            resultContainer.classList.add('hidden');
+            
+            // Reset progress bar
+            document.getElementById('loading-bar').style.width = '0%';
+            
+            // Reset result cards
+            document.querySelectorAll('.result-card').forEach(card => {
+                card.classList.remove('visible');
+            });
+            
+            // Scroll to top smoothly
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Click anywhere on drop zone to open file dialog
+        dropZone.addEventListener('click', (e) => {
+            if (e.target === dropZone || e.target === uploadContent) {
+                fileInput.click();
+            }
+        });
+
+        // Chat Functionality
+        toggleChatBtn.addEventListener('click', () => {
+            chatContainer.classList.toggle('hidden');
+            toggleChatBtn.innerHTML = chatContainer.classList.contains('hidden') 
+                ? '<i class="fas fa-comments mr-2"></i>Chat' 
+                : '<i class="fas fa-times mr-2"></i>Close';
+            
+            if (!chatContainer.classList.contains('hidden')) {
+                chatInput.focus();
+            }
+        });
+
+        // Send message function
+        async function sendMessage() {
+            const message = chatInput.value.trim();
+            if (!message) return;
+
+            // Add user message to chat
+            addMessage(message, 'user');
+            chatInput.value = '';
+            
+            // Disable send button while processing
+            sendMessageBtn.disabled = true;
+            sendMessageBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    addMessage(data.response, 'ai');
+                } else {
+                    addMessage('Sorry, I encountered an error. Please try again.', 'ai', true);
+                }
+            } catch (error) {
+                console.error('Chat error:', error);
+                addMessage('Connection error. Please check your internet connection.', 'ai', true);
+            } finally {
+                sendMessageBtn.disabled = false;
+                sendMessageBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+            }
+        }
+
+        // Add message to chat
+        function addMessage(message, sender, isError = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'flex items-start mb-4 animate__animated animate__fadeIn';
+            
+            if (sender === 'user') {
+                messageDiv.innerHTML = `
+                    <div class="ml-auto mr-3">
+                        <div class="bg-blue-600 text-white rounded-lg p-3 max-w-md shadow-sm">
+                            <p class="text-sm">${escapeHtml(message)}</p>
+                            <span class="text-xs text-blue-200 mt-1 block">You</span>
+                        </div>
+                    </div>
+                    <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-user text-gray-600 text-xs"></i>
+                    </div>
+                `;
+            } else {
+                const bgColor = isError ? 'bg-red-50 border-red-200' : 'bg-white';
+                const textColor = isError ? 'text-red-700' : 'text-gray-700';
+                messageDiv.innerHTML = `
+                    <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                        <i class="fas fa-robot text-white text-xs"></i>
+                    </div>
+                    <div class="${bgColor} rounded-lg p-3 max-w-md shadow-sm border">
+                        <p class="text-sm ${textColor} whitespace-pre-line">${formatAIResponse(message)}</p>
+                        <span class="text-xs text-gray-400 mt-1 block">AI Assistant</span>
+                    </div>
+                `;
+            }
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Format AI response with markdown-like styling
+        function formatAIResponse(message) {
+            return message
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n/g, '<br>')
+                .replace(/• (.*?)(<br>|$)/g, '<li class="ml-4">• $1</li><br>')
+                .replace(/<li><br>/g, '<li>')
+                .replace(/<br><\/li>/g, '</li>');
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Event listeners for chat
+        sendMessageBtn.addEventListener('click', sendMessage);
+        
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Quick action buttons
+        quickActionBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const message = btn.getAttribute('data-message');
+                chatInput.value = message;
+                sendMessage();
+            });
+        });
+
+        // Auto-expand chat when results are shown
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'attributes' && 
+                    mutation.attributeName === 'class' && 
+                    !resultContainer.classList.contains('hidden')) {
+                    if (chatContainer.classList.contains('hidden')) {
+                        toggleChatBtn.click();
+                    }
+                }
+            });
+        });
+
+        observer.observe(resultContainer, { attributes: true });
+    </script>
+</body>
+</html>

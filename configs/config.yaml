@@ -1,0 +1,112 @@
+# Data configuration
+data:
+  root_dir: "data/"
+  train_ratio: 0.7
+  val_ratio: 0.15
+  test_ratio: 0.15
+  input_size: [512, 512]
+  volume_depth: 32
+  
+# Model configuration
+model:
+  # Detection model (YOLOv8)
+  detection:
+    model_name: "yolov8n.pt"
+    confidence_threshold: 0.25
+    iou_threshold: 0.45
+    
+  # Segmentation model (UNETR)
+  segmentation:
+    model_name: "unetr"
+    in_channels: 1
+    out_channels: 2  # Background + nodule
+    img_size: [256, 256]  # Input size for 2D UNETR
+    feature_size: 16
+    hidden_size: 256  # Reduced for 2D
+    mlp_dim: 512      # Reduced for 2D
+    num_heads: 8      # Reduced for 2D
+    pos_embed: "perceptron"
+    norm_name: "instance"
+    res_block: True
+    dropout_rate: 0.1
+    spatial_dims: 2   # Explicitly set to 2D
+    
+  # Classification model
+  classification:
+    model_name: "resnet50"
+    num_classes: 3  # Benign, Malignant, Normal
+    pretrained: True
+
+# Training configuration
+training:
+  batch_size: 8
+  num_epochs: 100
+  learning_rate: 1e-4
+  weight_decay: 1e-5
+  patience: 15  # For early stopping
+  device: "cuda"  # Will be set programmatically based on availability
+  
+  # Loss functions
+  detection_loss: "yolo_loss"
+  segmentation_loss: "dice_ce"  # Dice + CrossEntropy
+  classification_loss: "cross_entropy"
+  
+  # Optimizer
+  optimizer: "adamw"
+  
+  # Learning rate scheduler
+  scheduler: "reduce_on_plateau"
+  scheduler_params:
+    mode: "max"
+    factor: 0.5
+    patience: 5
+    verbose: True
+
+# Paths
+paths:
+  checkpoints: "checkpoints/"
+  logs: "logs/"
+  outputs: "outputs/"
+  
+# Augmentations
+augmentations:
+  train:
+    - name: "RandomRotate90"
+      p: 0.5
+    - name: "HorizontalFlip"
+      p: 0.5
+    - name: "VerticalFlip"
+      p: 0.5
+    - name: "ShiftScaleRotate"
+      shift_limit: 0.1
+      scale_limit: 0.1
+      rotate_limit: 15
+      p: 0.5
+    - name: "RandomBrightnessContrast"
+      brightness_limit: 0.1
+      contrast_limit: 0.1
+      p: 0.3
+    - name: "GaussianBlur"
+      blur_limit: 3
+      p: 0.2
+      
+  val_test:
+    - name: "Resize"
+      height: 512
+      width: 512
+      always_apply: True
+
+# Evaluation
+evaluation:
+  metrics:
+    detection: ["map", "map50", "map75", "map_small", "map_medium", "map_large"]
+    segmentation: ["dice", "iou", "precision", "recall", "specificity"]
+    classification: ["accuracy", "precision", "recall", "f1", "auc_roc"]
+  
+  # Nodule detection evaluation
+  nodule_detection:
+    iou_threshold: 0.5
+    max_detections: 100
+    
+  # Classification thresholds
+  classification_threshold: 0.5
